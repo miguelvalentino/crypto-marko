@@ -242,24 +242,11 @@ def _cookie_value(name: str) -> str | None:
     return None
 
 
-def _app_root() -> str:
-    """Path root aplikasi, memperhitungkan ``server.baseUrlPath``."""
-    try:
-        base = (st.get_option("server.baseUrlPath") or "").strip("/")
-    except Exception:
-        base = ""
-    return f"/{base}/" if base else "/"
+_COOKIE_PENDING_KEY = "_auth_cookie_pending"
 
 
-def _write_cookie_and_reload(value: str, max_age: int) -> None:
-    """Tulis cookie sesi lewat JavaScript, lalu buka aplikasi dari root.
-
-    Sengaja diarahkan ke root, bukan ``location.reload()``. Tanpa ini,
-    URL lama (misalnya ``/admin``) akan dimuat ulang saat login/logout.
-    Jika pengguna baru bukan admin, Streamlit menampilkan "Page not found"
-    karena halaman itu tidak ada di navigasinya.
-    """
-    root = _app_root()
+def _write_cookie(value: str, max_age: int) -> None:
+    """Tulis atau hapus cookie sesi lewat JavaScript, tanpa reload halaman."""
     st.html(
         f"""
         <script>
@@ -268,17 +255,32 @@ def _write_cookie_and_reload(value: str, max_age: int) -> None:
                 + "max-age={max_age}; SameSite=Lax";
             document.cookie = "demo_session=; path=/; max-age=0; SameSite=Lax";
             document.cookie = "demo_profile=; path=/; max-age=0; SameSite=Lax";
-            window.location.replace("{root}");
         }})();
         </script>
         """,
         unsafe_allow_javascript=True,
     )
-    st.stop()
+
+
+def _queue_cookie(value: str, max_age: int) -> None:
+    """Jadwalkan penulisan cookie pada rerun berikutnya.
+
+    ``st.rerun()`` membuang elemen yang sudah dirender pada run saat ini,
+    jadi script cookie harus dijalankan setelah rerun, bukan sebelumnya.
+    """
+    st.session_state[_COOKIE_PENDING_KEY] = (value, max_age)
+
+
+def flush_pending_cookie() -> None:
+    """Tulis cookie yang dijadwalkan. Panggil sekali di awal setiap run."""
+    pending = st.session_state.pop(_COOKIE_PENDING_KEY, None)
+    if pending:
+        value, max_age = pending
+        _write_cookie(value, max_age)
 
 
 def start_session(user: dict) -> None:
-    """Buat sesi server, simpan token di cookie, lalu muat ulang halaman."""
+    """Buat sesi server, simpan token, lalu tampilkan dashboard tanpa reload."""
     token = secrets.token_urlsafe(32)
     token_hash = hashlib.sha256(token.encode("utf-8")).hexdigest()
     expires_at = datetime.now(timezone.utc) + timedelta(hours=SESSION_HOURS)
@@ -303,33 +305,20 @@ def start_session(user: dict) -> None:
 
     st.session_state["_auth_user"] = user
     st.session_state["_auth_token_hash"] = token_hash
-    # Tulis cookie (dibaca dari header Cookie, bukan st.context.cookies yang
-    # sering kosong) lalu redirect ke root agar sesi aktif di request berikutnya.
-    _write_cookie_and_reload(token, SESSION_HOURS * 3600)
-
-
-def _query_token() -> str | None:
-    """Ambil token sesi dari query param (robust di Streamlit Cloud)."""
-    try:
-        value = st.query_params.get("s")
-    except Exception:
-        return None
-    if isinstance(value, list):
-        value = value[0] if value else None
-    if not value or not isinstance(value, str):
-        return None
-    return value
+    # Cookie ditulis pada rerun berikutnya, setelah dashboard dirender.
+    _queue_cookie(token, SESSION_HOURS * 3600)
+    # Rerun langsung membuat dashboard tampil pada klik pertama, tanpa
+    # memuat ulang halaman (penyebab bug "klik Masuk dua kali").
+    st.rerun()
 
 
 def _current_token_hash() -> str | None:
-    """Ambil hash token sesi aktif dari state, query param, atau cookie."""
+    """Ambil hash token sesi aktif dari state atau cookie."""
     token_hash = st.session_state.get("_auth_token_hash")
     if token_hash:
         return token_hash
 
-    token = _query_token()
-    if not token:
-        token = _cookie_value(SESSION_COOKIE)
+    token = _cookie_value(SESSION_COOKIE)
     if not token:
         return None
 
@@ -395,8 +384,10 @@ def logout() -> None:
 
     st.session_state.pop("_auth_user", None)
     st.session_state.pop("_auth_token_hash", None)
-    if "s" in st.query_params:
-        del st.query_params["s"]
+    # Hapus cookie pada rerun berikutnya; sesi di server sudah dihapus, jadi
+    # cookie basi pun tidak bisa dipakai lagi.
+    _queue_cookie("", 0)
+    st.rerun()
 
 
 def require_admin() -> dict:

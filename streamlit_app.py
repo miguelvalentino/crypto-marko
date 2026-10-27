@@ -26,6 +26,9 @@ inject_css()
 init_state()
 render_theme_toggle()
 
+# Tulis/hapus cookie sesi yang dijadwalkan oleh login atau logout.
+auth.flush_pending_cookie()
+
 # ========================= LOGIN (POSTGRESQL) =========================
 if not auth.is_configured():
     auth.render_setup_needed()
