@@ -82,14 +82,10 @@ with col_supervisor:
         st.markdown(
             """
             * **Dosen Pembimbing I:**  
-              **Tony, S.Kom., M.Kom., Ph.D**  
-              *NIP:* 10805005  
-              *Bidang Keahlian:* 
+              **Tony, S.Kom., M.Kom., Ph.D** 
 
             * **Dosen Pembimbing Pendamping:**  
               **Irvan Lewenusa, S.Kom., M.Kom**  
-              *NIP:* 10823004  
-              *Bidang Keahlian:* 
             """
         )
 

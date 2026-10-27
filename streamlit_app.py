@@ -72,14 +72,14 @@ pages = [
         icon=":material/info:",
     ),
     st.Page(
-        "views/about.py",
-        title="About",
-        icon=":material/article:",
-    ),
-    st.Page(
         "views/profile.py",
         title="Profile",
         icon=":material/account_circle:",
+    ),
+    st.Page(
+        "views/about.py",
+        title="About",
+        icon=":material/article:",
     ),
 ]
 
