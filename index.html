@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#0b0b0b">
+  <title>Dashboard Prediksi Aset Crypto | Markowitz Lab</title>
+  <link rel="stylesheet" href="styles.css">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js" defer></script>
+</head>
+<body>
+  <div class="app">
+    <aside class="sidebar" aria-label="Navigasi utama">
+      <nav class="nav" aria-label="Halaman">
+        <a class="nav-link active" href="#dashboard" data-page-link="dashboard" aria-current="page"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><rect x="3" y="3" width="8" height="8" rx="1.5"/><rect x="13" y="3" width="8" height="8" rx="1.5"/><rect x="3" y="13" width="8" height="8" rx="1.5"/><rect x="13" y="13" width="8" height="8" rx="1.5"/></svg>Dashboard</a>
+        <a class="nav-link" href="#information" data-page-link="information"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 11v6m0-10h.01"/></svg>Information</a>
+        <a class="nav-link" href="#about" data-page-link="about"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path d="M4 5h16v14H4zM8 9h8M8 13h8M8 17h5"/></svg>About</a>
+      </nav>
+      <div class="sidebar-bottom">
+        <button class="disclaimer-trigger" id="disclaimer-open" type="button">Disclaimer</button>
+      </div>
+    </aside>
+
+    <main class="main"><div class="content">
+      <section class="page" id="dashboard" aria-labelledby="dashboard-title">
+        <div class="topline"><span class="eyebrow">● &nbsp; PROTOTIPE PENELITIAN</span><span class="top-index">DASHBOARD / 01</span></div>
+        <header class="intro"><h1 id="dashboard-title">Prediksi aset crypto.<br><em>Portofolio lebih terarah.</em></h1><p>Eksplorasi prediksi aset cryptocurrency blue-chip menggunakan TCN dan LSTM, lalu tinjau estimasi return, risiko, dan alokasi portofolio berbasis Markowitz.</p></header>
+        <div class="divider"></div>
+        <div class="section-heading"><h2>Ringkasan prediksi</h2><span>Pilih model dan rentang waktu untuk mengatur tampilan</span></div>
+        <div class="hero-grid">
+          <section class="panel panel-pad" aria-labelledby="chart-title">
+            <div class="panel-head"><div><span class="panel-kicker">01 / PROYEKSI ASET</span><h3 id="chart-title">Grafik prediksi <span data-asset-name>Bitcoin</span></h3></div></div>
+            <div class="chart-area"><canvas id="pred-chart" aria-label="Grafik historis vs prediksi"></canvas></div>
+            <p class="chart-status" id="chart-status" role="status">Memuat predictions.json…</p>
+          </section>
+          <section class="panel panel-pad controls" aria-labelledby="controls-title">
+            <div class="panel-head"><div><span class="panel-kicker">02 / KONFIGURASI</span><h3 id="controls-title">Atur tampilan prediksi</h3></div></div>
+            <div><span class="field-label" id="model-label">Pilih model algoritma</span><div class="model-options" role="group" aria-labelledby="model-label"><button class="model-button" type="button" data-model="TCN" aria-pressed="false"><strong>TCN</strong><small>Temporal Convolutional Network</small></button><button class="model-button" type="button" data-model="LSTM" aria-pressed="true"><strong>LSTM</strong><small>Long Short-Term Memory</small></button></div></div>
+            <hr class="field-separator">
+            <div><span class="field-label" id="asset-label">Pilih cryptocurrency</span><div class="asset-options" role="group" aria-labelledby="asset-label"><button class="asset-button" type="button" data-asset="BTC" data-name="Bitcoin" aria-pressed="true">BTC</button><button class="asset-button" type="button" data-asset="ETH" data-name="Ethereum" aria-pressed="false">ETH</button><button class="asset-button" type="button" data-asset="SOL" data-name="Solana" aria-pressed="false">SOL</button></div></div>
+            <div class="selection-note">Tampilan aktif: <strong><span data-model-name>LSTM</span> · <span data-asset-name>Bitcoin</span></strong><br><span id="selection-sub">Data prediksi dimuat dari predictions.json.</span></div>
+          </section>
+        </div>
+        <div class="section-heading"><h2>Estimasi &amp; optimasi</h2><span>Hasil perhitungan akan muncul setelah data tersedia</span></div>
+        <div class="horizon-bar"><span class="field-label" id="horizon-label">Horizon prediksi</span><div class="horizon-options" role="group" aria-labelledby="horizon-label"><button class="horizon-button" type="button" data-days="1" aria-pressed="false">1H</button><button class="horizon-button" type="button" data-days="3" aria-pressed="false">3H</button><button class="horizon-button" type="button" data-days="7" aria-pressed="true">7H</button><button class="horizon-button" type="button" data-days="14" aria-pressed="false">14H</button><button class="horizon-button" type="button" data-days="30" aria-pressed="false">30H</button></div></div>
+        <div class="panel result-panel" aria-labelledby="backtest-title" style="margin-bottom: 17px;">
+          <div class="panel-head" style="margin-bottom: 14px;"><div><span class="panel-kicker">03 / EVALUASI MODEL</span><h3 id="backtest-title">Backtesting metrics <span id="backtest-horizon-label">· 7 hari</span></h3></div></div>
+          <div class="metrics-grid" id="metrics-grid"></div>
+          <p class="table-note" id="backtest-status" role="status">MAE / RMSE dalam Rupiah · MAPE dalam % · R² mendekati 1 = lebih baik · update: -</p>
+        </div>
+        <div class="result-stack">
+          <section class="panel result-panel" aria-labelledby="returns-title">
+            <div class="panel-head"><div><span class="panel-kicker">03 / ANALISIS PER ASET</span><h3 id="returns-title">Expected return &amp; risiko <span id="returns-horizon-label">· 7 hari</span></h3></div></div>
+            <div class="table-wrap"><table class="data-table" id="returns-table">
+              <thead><tr><th>Aset</th><th>Harga terakhir</th><th>Tanggal prediksi</th><th>Prediksi</th><th>Expected return</th><th>Risiko (σ)</th></tr></thead>
+              <tbody id="returns-body"><tr><td colspan="5" class="muted-cell">Menunggu predictions.json…</td></tr></tbody>
+            </table></div>
+            <p class="table-note" id="returns-status" role="status">μ = (prediksi − terakhir) / terakhir · σ dari covariance 90 hari × horizon (sesuai notebook).</p>
+          </section>
+          <section class="panel result-panel" aria-labelledby="weights-title">
+            <div class="panel-head" style="margin-bottom: 20px;"><div><span class="panel-kicker">04 / OPTIMASI MARKOWITZ</span><h3 id="weights-title">Rekomendasi bobot aset <span id="weights-horizon-label">· 7 hari</span></h3></div></div>
+            <div style="margin: 0 0 16px; padding: 14px 16px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface-soft);">
+              <div style="font-size: 10px; font-weight: 800; letter-spacing: .16em; text-transform: uppercase; color: var(--accent); margin-bottom: 10px;">Bobot minimum per aset</div>
+              <div style="display: flex; align-items: center; gap: 14px;">
+                <input type="range" id="min-weight-slider" min="0" max="30" step="1" value="20" style="flex: 1; accent-color: var(--accent); cursor: pointer;">
+                <span id="min-weight-val" style="min-width: 42px; text-align: right; font-weight: 700; font-size: 13px;">20%</span>
+                <button id="min-weight-confirm" type="button" style="padding: 8px 18px; border: 0; border-radius: 8px; background: var(--accent); color: #1e1e1e; font-size: 12px; font-weight: 700; cursor: pointer;">Konfirmasi</button>
+              </div>
+              <p style="margin: 8px 0 0; font-size: 10px; color: var(--muted);">Geser untuk mengatur bobot minimum per aset (0%–30%), lalu tekan <strong>Konfirmasi</strong> untuk memperbarui rekomendasi.</p>
+            </div>
+            <div class="weights-body" id="weights-body"><p class="muted-cell">Menunggu predictions.json…</p></div>
+            <div style="margin: 16px 0 0; padding: 14px 16px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface-soft);">
+              <div style="font-size: 10px; font-weight: 800; letter-spacing: .16em; text-transform: uppercase; color: var(--accent); margin-bottom: 10px;">Simulasi Modal</div>
+              <div style="display: flex; align-items: center; gap: 14px;">
+                <label style="font-size: 11px; color: var(--muted); flex: none;">Modal awal</label>
+                <input type="number" id="sim-modal" min="0" step="1000" placeholder="Rp" style="flex: 1; padding: 8px 12px; border: 1px solid #505050; border-radius: 6px; background: #282828; color: var(--text);">
+                <button id="sim-calc" type="button" style="padding: 8px 18px; border: 0; border-radius: 6px; background: var(--accent); color: #1e1e1e; font-size: 12px; font-weight: 700; cursor: pointer;">Hitung</button>
+              </div>
+            </div>
+            <div id="sim-result" style="margin: 12px 0 0; padding: 14px 16px; border: 1px solid var(--border); border-radius: 10px; background: #202020; display: none;">
+              <div style="font-size: 10px; font-weight: 800; letter-spacing: .16em; text-transform: uppercase; color: var(--accent); margin-bottom: 10px;">Hasil Simulasi</div>
+              <table class="data-table" style="margin-top: 8px;">
+                <thead><tr><th>Aset</th><th>Bobot</th><th>Jumlah Aset</th><th>Nilai Akhir (Prediksi)</th><th>Keuntungan / Kerugian</th></tr></thead>
+                <tbody id="sim-body"></tbody>
+              </table>
+              <div style="margin-top: 12px; font-size: 13px; display: flex; gap: 24px; flex-wrap: wrap;">
+                <span>Modal: <strong id="sim-modal-total">Rp 0</strong></span>
+                <span>Nilai Portfolio: <strong id="sim-portfolio-total">Rp 0</strong></span>
+                <span id="sim-pl-total" style="font-weight: 700;">Keuntungan / Kerugian: <strong>Rp 0</strong></span>
+              </div>
+            </div>
+            <p class="table-note" id="weights-status" role="status">Horizon tetap 7 hari · Maks. Sharpe · update: -</p>
+          </section>
+        </div>
+      </section>
+
+      <section class="page" id="information" aria-labelledby="information-title" hidden>
+        <div class="topline"><span class="eyebrow">● &nbsp; PROTOTIPE PENELITIAN</span><span class="top-index">INFORMATION / 02</span></div>
+        <header class="intro"><h1 id="information-title">Informasi <em>penelitian.</em></h1><p>Ruang untuk panduan pemakaian model, sumber dataset, dan informasi algoritma prediksi.</p></header>
+        <div class="divider"></div>
+        <div class="section-heading"><h2>Panduan &amp; dataset</h2></div>
+        <div class="result-stack">
+          <section class="panel result-panel" aria-labelledby="usage-title">
+            <div class="panel-head"><div><span class="panel-kicker">01 / PANDUAN</span><h3 id="usage-title">Cara Pemakaian Model</h3></div><span class="badge">Placeholder</span></div>
+            <div class="empty-panel" role="img" aria-label="Kotak kosong untuk cara pemakaian model"></div>
+          </section>
+          <section class="panel result-panel" aria-labelledby="dataset-title">
+            <div class="panel-head"><div><span class="panel-kicker">02 / DATASET</span><h3 id="dataset-title">Sumber dataset</h3></div><span class="badge">Placeholder</span></div>
+            <div class="empty-panel" role="img" aria-label="Kotak kosong untuk sumber dataset"></div>
+          </section>
+        </div>
+        <div class="section-heading"><h2>Informasi Model</h2></div>
+        <div class="information-model-grid">
+          <section class="panel result-panel" aria-labelledby="tcn-title">
+            <div class="panel-head"><div><span class="panel-kicker">03 / MODEL PREDIKSI</span><h3 id="tcn-title">TCN</h3></div><span class="badge">Placeholder</span></div>
+            <div class="empty-panel" role="img" aria-label="Kotak kosong untuk informasi model TCN"></div>
+          </section>
+          <section class="panel result-panel" aria-labelledby="lstm-title">
+            <div class="panel-head"><div><span class="panel-kicker">04 / MODEL PREDIKSI</span><h3 id="lstm-title">LSTM</h3></div><span class="badge">Placeholder</span></div>
+            <div class="empty-panel" role="img" aria-label="Kotak kosong untuk informasi model LSTM"></div>
+          </section>
+        </div>
+      </section>
+      <section class="page about-page" id="about" aria-labelledby="about-title" hidden>
+        <div class="topline"><span class="eyebrow">● &nbsp; PROTOTIPE PENELITIAN</span><span class="top-index">ABOUT / 03</span></div>
+        <header class="intro"><h1 id="about-title">About</h1></header>
+        <div class="divider"></div>
+        <div class="result-stack">
+          <section class="panel result-panel" aria-labelledby="people-title">
+            <div class="panel-head"><div><span class="panel-kicker">01 / PERANCANGAN</span><h3 id="people-title">Para di Balik Perancangan</h3></div><span class="badge">Placeholder</span></div>
+            <div class="empty-panel" role="img" aria-label="Kotak kosong untuk informasi perancang"></div>
+          </section>
+          <section class="panel result-panel" aria-labelledby="flow-title">
+            <div class="panel-head"><div><span class="panel-kicker">02 / ALUR</span><h3 id="flow-title">Alur Perancangan</h3></div><span class="badge">Placeholder</span></div>
+            <div class="empty-panel about-flow-placeholder" role="img" aria-label="Kotak kosong untuk alur perancangan"></div>
+          </section>
+        </div>
+      </section>
+    </div></main>
+  </div>
+  <dialog id="disclaimer-dialog" aria-labelledby="disclaimer-title"><h2 id="disclaimer-title">Disclaimer</h2><p>Dashboard ini merupakan prototipe penelitian, bukan nasihat atau rekomendasi investasi. Grafik, return, risiko, dan bobot portofolio belum berisi hasil perhitungan aktual. Keputusan investasi tetap menjadi tanggung jawab pengguna.</p><form method="dialog"><button type="submit">Saya mengerti</button></form></dialog>
+  <script src="app.js" defer></script>
+</body>
+</html>

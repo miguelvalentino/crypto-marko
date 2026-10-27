@@ -1,0 +1,76 @@
+# ===== Python =====
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyo
+*.pyd
+*.so
+.Python
+
+# ===== Virtual environments =====
+.venv/
+venv/
+env/
+ENV/
+
+# ===== Streamlit secrets (JANGAN PERNAH DI-COMMIT) =====
+.streamlit/secrets.toml
+.streamlit/secrets.toml.example
+
+# ===== Environment / credentials =====
+.env
+.env.*
+*.pem
+*.key
+
+# ===== OpenCode tooling =====
+.opencode/
+
+# ===== OS =====
+.DS_Store
+Thumbs.db
+desktop.ini
+*.lnk
+
+# ===== IDE / editor =====
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# ===== Jupyter =====
+.ipynb_checkpoints/
+*.ipynb_checkpoints
+
+# ===== Build / packaging =====
+build/
+dist/
+*.egg-info/
+*.egg
+.pytest_cache/
+.coverage
+htmlcov/
+
+# ===== Logs & temp =====
+*.log
+*.tmp
+*.bak
+logs/
+
+# ===== App-specific =====
+# Cadangan hasil update (dibuat lokal, jangan ikut repo)
+predictions.backup.json
+predictions.next.json
+*.lock
+
+# Riwayat pembaruan lokal (jika disimpan ke file)
+update_log*.json
+
+# ===== JANGAN DI-IGNORE (harus ikut repo untuk GitHub Actions) =====
+# models/        -> model .keras + scaler (21 MB), dibutuhkan runner
+# data/          -> merged + processed (1.6 MB), fallback data
+# predictions.json -> sumber data dashboard, ditulis ulang oleh workflow
+# database/      -> schema.sql
+# requirements.txt
+# .streamlit/config.toml
