@@ -226,13 +226,19 @@ def authenticate(identifier: str, password: str) -> tuple[dict | None, str | Non
 
 # ========================= SESI =========================
 def _cookie_value(name: str) -> str | None:
-    """Ambil cookie sebagai string; abaikan objek mock/nilai kosong."""
+    """Ambil cookie dari header Cookie (st.context.cookies sering kosong)."""
     try:
-        value = st.context.cookies.get(name)
-    except (KeyError, TypeError, AttributeError):
+        cookie_header = st.context.headers.get("cookie", "") or ""
+    except Exception:
         return None
-    if isinstance(value, str) and value:
-        return value
+    if not cookie_header:
+        return None
+    for part in cookie_header.split(";"):
+        part = part.strip()
+        if "=" in part:
+            key, _, value = part.partition("=")
+            if key.strip() == name and value.strip():
+                return value.strip()
     return None
 
 
@@ -297,17 +303,36 @@ def start_session(user: dict) -> None:
 
     st.session_state["_auth_user"] = user
     st.session_state["_auth_token_hash"] = token_hash
+    # Tulis cookie (dibaca dari header Cookie, bukan st.context.cookies yang
+    # sering kosong) lalu redirect ke root agar sesi aktif di request berikutnya.
     _write_cookie_and_reload(token, SESSION_HOURS * 3600)
 
 
+def _query_token() -> str | None:
+    """Ambil token sesi dari query param (robust di Streamlit Cloud)."""
+    try:
+        value = st.query_params.get("s")
+    except Exception:
+        return None
+    if isinstance(value, list):
+        value = value[0] if value else None
+    if not value or not isinstance(value, str):
+        return None
+    return value
+
+
 def _current_token_hash() -> str | None:
-    """Ambil hash token sesi aktif dari state atau cookie."""
+    """Ambil hash token sesi aktif dari state, query param, atau cookie."""
     token_hash = st.session_state.get("_auth_token_hash")
     if token_hash:
         return token_hash
-    token = _cookie_value(SESSION_COOKIE)
+
+    token = _query_token()
+    if not token:
+        token = _cookie_value(SESSION_COOKIE)
     if not token:
         return None
+
     token_hash = hashlib.sha256(token.encode("utf-8")).hexdigest()
     st.session_state["_auth_token_hash"] = token_hash
     return token_hash
@@ -319,11 +344,7 @@ def current_user() -> dict | None:
     Sesi divalidasi ulang ke database setiap kali dipanggil agar perubahan
     role, penonaktifan akun, atau reset password langsung berlaku.
     """
-    token_hash = st.session_state.get("_auth_token_hash")
-    if not token_hash:
-        token = _cookie_value(SESSION_COOKIE)
-        if token:
-            token_hash = hashlib.sha256(token.encode("utf-8")).hexdigest()
+    token_hash = _current_token_hash()
 
     if not token_hash:
         # Tanpa token (misalnya pengujian yang menyetel state langsung),
@@ -360,11 +381,9 @@ def current_user() -> dict | None:
 
 
 def logout() -> None:
-    """Hapus sesi di server dan cookie di browser."""
-    token = _cookie_value(SESSION_COOKIE)
-
-    if token:
-        token_hash = hashlib.sha256(token.encode("utf-8")).hexdigest()
+    """Hapus sesi di server dan bersihkan token lokal."""
+    token_hash = _current_token_hash()
+    if token_hash:
         try:
             with _connect() as conn:
                 conn.execute(
@@ -376,7 +395,8 @@ def logout() -> None:
 
     st.session_state.pop("_auth_user", None)
     st.session_state.pop("_auth_token_hash", None)
-    _write_cookie_and_reload("", 0)
+    if "s" in st.query_params:
+        del st.query_params["s"]
 
 
 def require_admin() -> dict:
