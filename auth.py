@@ -225,8 +225,8 @@ def authenticate(identifier: str, password: str) -> tuple[dict | None, str | Non
 
 
 # ========================= SESI =========================
-def _cookie_value(name: str) -> str | None:
-    """Ambil cookie dari header Cookie (st.context.cookies sering kosong)."""
+def _cookie_value_from_header(name: str = SESSION_COOKIE) -> str | None:
+    """Ambil cookie dari header Cookie (jalan di lokal; di Cloud proxy bisa membuangnya)."""
     try:
         cookie_header = st.context.headers.get("cookie", "") or ""
     except Exception:
@@ -240,6 +240,74 @@ def _cookie_value(name: str) -> str | None:
             if key.strip() == name and value.strip():
                 return value.strip()
     return None
+
+
+# ========================= COOKIE DARI BROWSER (CLOUD) =========================
+# Streamlit Community Cloud hanya meneruskan cookie yang ada di allowlist ke
+# aplikasi. Cookie ``markowitz_session`` bukan bagian dari allowlist, sehingga
+# tidak terbaca lewat header. Karena cookie ditulis lewat JavaScript, kita baca
+# ulang dari ``document.cookie`` dengan komponen v2 (tanpa dependensi tambahan)
+# yang berjalan di DOM halaman aplikasi.
+_COOKIE_READER_JS = '''
+export default function(component) {
+    const { setStateValue } = component;
+    function getCookie(name) {
+        const escaped = name.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$&');
+        const match = document.cookie.match(new RegExp('(?:^|; )' + escaped + '=([^;]*)'));
+        return match ? decodeURIComponent(match[1]) : '';
+    }
+    const token = getCookie('markowitz_session');
+    setStateValue('state', { token: token, ready: true });
+}
+'''
+
+_cookie_reader_component = None
+
+
+def _get_cookie_reader():
+    global _cookie_reader_component
+    if _cookie_reader_component is None:
+        try:
+            _cookie_reader_component = st.components.v2.component(
+                "markowitz_cookie_reader", js=_COOKIE_READER_JS
+            )
+        except Exception:
+            logger.exception("Gagal mendaftarkan komponen pembaca cookie")
+            _cookie_reader_component = None
+    return _cookie_reader_component
+
+
+_BROWSER_COOKIE_KEY = "_auth_browser_cookie_token"
+_BROWSER_COOKIE_READY_KEY = "_auth_browser_cookie_ready"
+
+
+def _read_browser_cookie():
+    reader = _get_cookie_reader()
+    if reader is None:
+        # Tidak bisa baca dari browser; jangan blokir aplikasi.
+        return True, None
+    try:
+        result = reader(key="markowitz_cookie_reader_instance", on_state_change=lambda: None)
+    except Exception:
+        logger.exception("Gagal membaca cookie dari browser")
+        return True, None
+    state = getattr(result, "state", None)
+    if not isinstance(state, dict) or not state.get("ready"):
+        return False, None
+    token = state.get("token")
+    return True, (token.strip() if isinstance(token, str) and token.strip() else None)
+
+
+def sync_browser_cookie():
+    """Sinkronkan cookie browser ke session_state. Panggil sekali di awal run."""
+    ready, token = _read_browser_cookie()
+    st.session_state[_BROWSER_COOKIE_READY_KEY] = ready
+    if ready:
+        st.session_state[_BROWSER_COOKIE_KEY] = token or ""
+
+
+def is_browser_cookie_ready():
+    return bool(st.session_state.get(_BROWSER_COOKIE_READY_KEY, False))
 
 
 _COOKIE_PENDING_KEY = "_auth_cookie_pending"
@@ -318,7 +386,11 @@ def _current_token_hash() -> str | None:
     if token_hash:
         return token_hash
 
-    token = _cookie_value(SESSION_COOKIE)
+    token = _cookie_value_from_header(SESSION_COOKIE)
+    if not token:
+        token = st.session_state.get(_BROWSER_COOKIE_KEY)
+        if not token:
+            token = None
     if not token:
         return None
 
@@ -384,6 +456,8 @@ def logout() -> None:
 
     st.session_state.pop("_auth_user", None)
     st.session_state.pop("_auth_token_hash", None)
+    st.session_state.pop(_BROWSER_COOKIE_KEY, None)
+    st.session_state[_BROWSER_COOKIE_READY_KEY] = True
     # Hapus cookie pada rerun berikutnya; sesi di server sudah dihapus, jadi
     # cookie basi pun tidak bisa dipakai lagi.
     _queue_cookie("", 0)

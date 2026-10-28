@@ -34,6 +34,14 @@ if not auth.is_configured():
     auth.render_setup_needed()
     st.stop()
 
+# Sesi dari cookie browser (diperlukan di Streamlit Cloud, karena proxy
+# membuang cookie yang tidak ada di allowlist dari header request).
+if not st.session_state.get("_auth_token_hash"):
+    auth.sync_browser_cookie()
+    if not auth.is_browser_cookie_ready():
+        st.info("Memeriksa sesi...")
+        st.stop()
+
 user = auth.current_user()
 if user is None:
     render_auth()

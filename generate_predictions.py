@@ -125,18 +125,37 @@ def model_file_names(model, asset, horizon):
 
 
 def fetch_live_merged():
-    """Fallback: ambil 1000 baris harian via ccxt, seperti Tahap 1-2 notebook."""
+    """Ambil data harian via ccxt.
+
+    - Binance memakai data-api.binance.vision (api.binance.com diblokir di
+      runner GitHub US, HTTP 451).
+    - Candle hari berjalan (belum selesai) dibuang, agar prediksi memakai
+      harga penutupan harian yang lengkap.
+    """
     import ccxt
-    print("[INFO] data/merged tidak ditemukan -> fetch live via ccxt ...")
-    indodax, binance = ccxt.indodax(), ccxt.binance()
+    print("[INFO] fetch live via ccxt ...")
+    indodax = ccxt.indodax({"enableRateLimit": True})
+    # api.binance.com diblokir di beberapa region (termasuk runner GitHub US).
+    binance = ccxt.binance({
+        "options": {"defaultType": "spot", "fetchMarkets": ["spot"]},
+        "urls": {"api": {"public": "https://data-api.binance.vision/api/v3"}},
+        "enableRateLimit": True,
+    })
+
+    # Candle yang tanggalnya >= hari ini (UTC) dianggap belum selesai.
+    today_utc = datetime.now(timezone.utc).date()
 
     def fetch(exchange, symbol, limit=1000):
         ohlcv = exchange.fetch_ohlcv(symbol, timeframe="1d", limit=limit)
         df = pd.DataFrame(ohlcv, columns=["Timestamp", "Open", "High", "Low", "Close", "Volume"])
         df["Tanggal"] = pd.to_datetime(df["Timestamp"], unit="ms")
-        return df[["Tanggal", "Open", "High", "Low", "Close", "Volume"]]
+        df = df[df["Tanggal"].dt.date < today_utc]
+        return df[["Tanggal", "Open", "High", "Low", "Close", "Volume"]].reset_index(drop=True)
 
     usdt_idr = fetch(indodax, "USDT/IDR")
+    if usdt_idr.empty:
+        raise RuntimeError("USDT/IDR kosong setelah membuang candle belum selesai")
+
     merged = {}
     for asset in ASSETS:
         df_indo = fetch(indodax, f"{asset}/IDR")
@@ -152,7 +171,11 @@ def fetch_live_merged():
         df_idr.columns = ["Tanggal", "Open", "High", "Low", "Close", "Volume"]
         m = pd.merge(df_indo, df_idr, on="Tanggal", how="inner",
                      suffixes=("_indodax", "_binance"))
-        merged[asset] = m.sort_values("Tanggal").reset_index(drop=True)
+        m = m.sort_values("Tanggal").reset_index(drop=True)
+        if m.empty:
+            raise RuntimeError(f"{asset}: hasil merge kosong")
+        merged[asset] = m
+        print(f"  {asset}: {len(m)} baris, terakhir {m['Tanggal'].iloc[-1].date()}")
     return merged
 
 
@@ -161,6 +184,7 @@ def load_merged():
     if d is None:
         return fetch_live_merged(), None
     print(f"[INFO] memakai CSV dari: {d}")
+    today_utc = datetime.now(timezone.utc).date()
     merged = {}
     for asset in ASSETS:
         p = os.path.join(d, f"{asset}_merged.csv")
@@ -168,6 +192,7 @@ def load_merged():
             print(f"[WARN] {p} tidak ada, lewati {asset}")
             continue
         df = pd.read_csv(p, parse_dates=["Tanggal"])
+        df = df[df["Tanggal"].dt.date < today_utc]
         merged[asset] = df.sort_values("Tanggal").reset_index(drop=True)
     return merged, d
 
@@ -388,7 +413,7 @@ def compute_backtest_metrics(merged, load_model):
     return metrics
 
 
-def predict_all(force=False):
+def predict_all(force=False, strict=False):
     # Skip jika sudah terupdate hari ini (kecuali --force)
     if not force and is_generated_today():
         print("[SKIP] predictions.json sudah terupdate hari ini.")
@@ -402,18 +427,37 @@ def predict_all(force=False):
         print("        Jalankan di environment notebook: pip install tensorflow scikit-learn ccxt pandas scipy joblib")
         sys.exit(1)
 
-    # Coba fetch live; kalau gagal, fallback ke CSV
+    # Fetch live. Di mode strict (CI), kegagalan fetch membuat proses gagal
+    # agar tidak diam-diam memakai data lama.
     try:
         print("[INFO] Mencoba fetch data live dari API...")
         merged = fetch_live_merged()
         print("[OK] Data live berhasil diambil.")
     except Exception as e:
+        if strict:
+            print(f"[ERROR] Fetch live gagal: {e}")
+            print("        Mode strict aktif: tidak fallback ke CSV lama.")
+            sys.exit(1)
         print(f"[WARN] Fetch live gagal: {e}")
         print("[INFO] Fallback ke CSV terbaru...")
         merged, _ = load_merged()
         if not merged:
             print("[ERROR] Tidak ada data live maupun CSV. Pastikan koneksi internet atau file CSV tersedia.")
             sys.exit(1)
+
+    # Validasi kesegaran data.
+    try:
+        latest = max(df["Tanggal"].max() for df in merged.values())
+        today_utc = datetime.now(timezone.utc).date()
+        if latest.date() < (today_utc - timedelta(days=1)):
+            msg = f"[WARN] Data terakhir {latest.date()} lebih lama dari kemarin ({today_utc - timedelta(days=1)})."
+            if strict:
+                print(f"[ERROR] {msg}")
+                print("        Mode strict aktif: data dianggap basi.")
+                sys.exit(1)
+            print(msg)
+    except Exception:
+        pass
 
     # Hitung backtesting metrics
     print("\n=== Backtesting Metrics ===")
@@ -429,7 +473,7 @@ def predict_all(force=False):
             "window_size": WINDOW_SIZE,
             "history_days": HISTORY_DAYS,
             "horizons": HORIZONS,
-            "generated_at": datetime.now().isoformat(timespec="seconds"),
+            "generated_at": datetime.now(WIB).isoformat(timespec="seconds"),
             "lookback_days": LOOKBACK_DAYS,
             "bi_rate_annual": BI_RATE_ANNUAL,
             "min_weight": MIN_WEIGHT,
@@ -456,5 +500,6 @@ def predict_all(force=False):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Generate predictions.json untuk dashboard")
     parser.add_argument("--force", action="store_true", help="Paksa fetch ulang meski sudah terupdate hari ini")
+    parser.add_argument("--strict", action="store_true", help="Gagal (bukan fallback) jika fetch live gagal atau data basi (untuk CI)")
     args = parser.parse_args()
-    predict_all(force=args.force)
+    predict_all(force=args.force, strict=args.strict)
