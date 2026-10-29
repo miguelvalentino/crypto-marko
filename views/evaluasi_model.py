@@ -11,7 +11,7 @@ predictions = get_predictions()
 backtest = predictions.get("backtest", {})
 generated_at = predictions.get("meta", {}).get("generated_at", "-")
 
-# Urutkan per aset, lalu horizon, lalu model agar LSTM dan TCN berdampingan.
+# Urutkan per aset, lalu horizon, lalu model.
 rows = []
 for asset_code in ASSET_KEYS:
     for horizon in HORIZONS:

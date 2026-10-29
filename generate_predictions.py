@@ -1,57 +1,3 @@
-"""
-Export hasil prediksi LSTM (.keras) ke predictions.json untuk website.
-
-Mirip fungsi predict_future() + plot_historical_vs_points() di notebook
-pipeline_data_dan_lstm_btc (3).ipynb.
-
-KONFIGURASI PENTING (disamakan dengan notebook):
-- WINDOW_SIZE = 30  (input model = 30 hari x 10 fitur)
-  Catatan: "60 hari" di notebook hanya n_historical_days untuk TAMPILAN
-  grafik, bukan input model.
-- FEATURE_COLS = 10 kolom (Open/High/Low/Close/Volume x Indodax/Binance)
-- Target = Close_indodax pada h hari ke depan (h = 1,3,7,14,30)
-- scaler_{ASET}.pkl dipakai untuk scaling fitur (fit dari train saja)
-- target_scaler_{ASET}_h{H}.pkl dipakai untuk inverse-transform output
-
-CARA PAKAI (jalankan di environment yang sama dengan notebook,
-bukan di terminal polos — butuh tensorflow, scikit-learn, ccxt, pandas):
-
-  1. Pastikan struktur folder:
-       kode skripsi/
-         models_LSTM/            <- 15x .keras + 3x scaler + 15x target_scaler (sudah ada)
-         data/merged/            <- BTC_merged.csv, ETH_merged.csv, SOL_merged.csv
-                                    (copy dari output notebook: data/merged/)
-         generate_predictions.py <- file ini
-         predictions.json        <- hasil (dibuat oleh script ini)
-
-     Jika data/merged belum ada, script otomatis fetch live via ccxt
-     (butuh internet) seperti Tahap 1-2 notebook.
-
-  2. Jalankan:
-       python generate_predictions.py
-       -> menghasilkan predictions.json
-
-  3. Copy predictions.json ke folder yang sama dengan index.html
-     (script ini sudah menyimpannya di situ), lalu buka website via
-     HTTP server (bukan double-click file://), misal:
-       npx serve .
-       atau VS Code -> Live Server -> Open index.html
-     Alasan: fetch('predictions.json') diblokir browser bila file://.
-
-  4. Di website pilih model=LSTM + aset BTC/ETH/SOL -> grafik update.
-     Buka DevTools (F12) -> Console untuk log status load.
-
-Output predictions.json:
-{
-  "meta": {"window_size": 30, "history_days": 60, "generated_at": "..."},
-  "BTC": {
-    "last_close": 123456789, "last_date": "2026-10-12",
-    "history": {"dates": [...60...], "close": [...60...]},
-    "forecast": {"1": {"date": "...", "price": ...}, "3": {...}, ...}
-  },
-  "ETH": {...}, "SOL": {...}
-}
-"""
 import argparse
 import json
 import os
@@ -62,25 +8,24 @@ import joblib
 import numpy as np
 import pandas as pd
 
-WIB = timezone(timedelta(hours=7))  # Waktu Indonesia Barat (UTC+7)
+WIB = timezone(timedelta(hours=7))
 
 ASSETS = ["BTC", "ETH", "SOL"]
-MODELS = ["LSTM", "TCN"]  # urutan tampilan di dashboard
+MODELS = ["LSTM", "TCN"]
 HORIZONS = [1, 3, 7, 14, 30]
-WINDOW_SIZE = 30          # <-- samakan dengan notebook, JANGAN 60
-HISTORY_DAYS = 60         # hanya untuk tampilan grafik
-LOOKBACK_DAYS = 90        # untuk matriks covariance (samakan notebook)
-BI_RATE_ANNUAL = 0.0575   # samakan Tabel proposal; RF harian = /365
-MIN_WEIGHT = 0.2          # batas bawah bobot Markowitz (samakan notebook)
+WINDOW_SIZE = 30
+HISTORY_DAYS = 60
+LOOKBACK_DAYS = 90
+BI_RATE_ANNUAL = 0.0575
+MIN_WEIGHT = 0.2
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-# Semua folder yang mungkin berisi .keras / .pkl (sesuai SCALER_DIR di notebook = "models")
 MODEL_DIRS = [
     os.path.join(BASE_DIR, "models"),        # output notebook (SCALER_DIR)
     os.path.join(BASE_DIR, "models_LSTM"),   # folder LSTM lama
     os.path.join(BASE_DIR, "models_TCN"),    # bila TCN dipisah
 ]
 MERGED_CANDIDATES = [
-    os.path.join(BASE_DIR, "data", "merged"),   # kode skripsi/data/merged
+    os.path.join(BASE_DIR, "data", "merged"),
     os.path.join(BASE_DIR, "..", "data", "merged"),
     "data/merged",
     "data/merged".replace("/", os.sep),
@@ -135,7 +80,6 @@ def fetch_live_merged():
     import ccxt
     print("[INFO] fetch live via ccxt ...")
     indodax = ccxt.indodax({"enableRateLimit": True})
-    # api.binance.com diblokir di beberapa region (termasuk runner GitHub US).
     binance = ccxt.binance({
         "options": {"defaultType": "spot", "fetchMarkets": ["spot"]},
         "urls": {"api": {"public": "https://data-api.binance.vision/api/v3"}},
@@ -299,8 +243,6 @@ def predict_model(model, load_model, merged):
     if not block:
         return None
 
-    # --- Analisis per horizon (mirror sel Markowitz notebook) ---
-    # mu_h = (pred_h - last)/last per aset; risiko aset = sqrt(diag(cov_h))
     last_prices = {a: float(merged[a]["Close_indodax"].iloc[-1]) for a in block}
     active = list(block.keys())
     analysis = {}
@@ -350,7 +292,6 @@ def compute_backtest_metrics(merged, load_model):
     """Hitung MAE, RMSE, MAPE, R² untuk tiap model, horizon, dan aset pada data test."""
     from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 
-    # Muat test CSV (yang punya kolom Target_hd) dari data/processed
     processed_dir = os.path.join(BASE_DIR, "data", "processed")
     test_dfs = {}
     if os.path.isdir(processed_dir):
@@ -382,16 +323,10 @@ def compute_backtest_metrics(merged, load_model):
                 net = load_model(model_path)
                 tscaler = joblib.load(tscaler_path)
 
-                # PENTING: fitur di data/processed/*_test.csv SUDAH di-scale oleh
-                # fit_scale() di notebook (MinMaxScaler fit pada train, lalu
-                # transform ke train/val/test). Jadi jangan transform lagi di sini
-                # — akan terjadi double scaling dan metrik jadi tidak sesuai notebook.
-                # Kolom Target_hd sengaja TIDAK di-scale (lihat catatan di notebook).
                 win = WINDOW_SIZE
                 if len(test_df) < win + 1:
                     continue
                 all_y_true, all_y_pred = [], []
-                # Sama persis dengan create_sequences() di notebook: len(df) - window + 1
                 for i in range(len(test_df) - win + 1):
                     x = test_df[FEATURE_COLS].values[i:i + win].reshape(1, win, len(FEATURE_COLS))
                     pred_scaled = net.predict(x, verbose=0).flatten()[0]
@@ -414,7 +349,6 @@ def compute_backtest_metrics(merged, load_model):
 
 
 def predict_all(force=False, strict=False):
-    # Skip jika sudah terupdate hari ini (kecuali --force)
     if not force and is_generated_today():
         print("[SKIP] predictions.json sudah terupdate hari ini.")
         print("       Gunakan --force untuk fetch ulang.")
@@ -427,8 +361,6 @@ def predict_all(force=False, strict=False):
         print("        Jalankan di environment notebook: pip install tensorflow scikit-learn ccxt pandas scipy joblib")
         sys.exit(1)
 
-    # Fetch live. Di mode strict (CI), kegagalan fetch membuat proses gagal
-    # agar tidak diam-diam memakai data lama.
     try:
         print("[INFO] Mencoba fetch data live dari API...")
         merged = fetch_live_merged()
@@ -445,7 +377,7 @@ def predict_all(force=False, strict=False):
             print("[ERROR] Tidak ada data live maupun CSV. Pastikan koneksi internet atau file CSV tersedia.")
             sys.exit(1)
 
-    # Validasi kesegaran data.
+    # Validasi update data.
     try:
         latest = max(df["Tanggal"].max() for df in merged.values())
         today_utc = datetime.now(timezone.utc).date()
@@ -459,7 +391,7 @@ def predict_all(force=False, strict=False):
     except Exception:
         pass
 
-    # Hitung backtesting metrics
+    # Hitung evaluasi
     print("\n=== Backtesting Metrics ===")
     backtest = compute_backtest_metrics(merged, load_model)
     for m in backtest:

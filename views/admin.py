@@ -23,8 +23,6 @@ def rerun_with_flash(kind: str, message: str) -> None:
     st.session_state["_admin_flash"] = (kind, message)
     st.rerun()
 
-
-# ========================= BUAT AKUN =========================
 st.subheader("Buat akun")
 
 with st.form("form_buat_akun", clear_on_submit=True):
@@ -47,8 +45,6 @@ if submitted:
             f"Akun '{auth.normalize_username(new_username)}' berhasil dibuat.",
         )
 
-
-# ========================= DAFTAR AKUN =========================
 st.subheader("Daftar akun")
 
 try:
@@ -84,8 +80,6 @@ table = pd.DataFrame(
 
 st.dataframe(table, hide_index=True, width="stretch")
 
-
-# ========================= AKSI AKUN =========================
 st.subheader("Aksi akun")
 
 labels = {

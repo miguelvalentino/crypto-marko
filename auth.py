@@ -25,7 +25,6 @@ from psycopg.rows import dict_row
 
 logger = logging.getLogger(__name__)
 
-# ========================= KONFIGURASI =========================
 SESSION_COOKIE = "markowitz_session"
 SESSION_HOURS = 12
 MAX_FAILED_ATTEMPTS = 5
@@ -38,7 +37,6 @@ MAX_PASSWORD_BYTES = 72
 USERNAME_RE = re.compile(r"^[a-z0-9][a-z0-9._-]{2,49}$")
 EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 
-# Hash dummy supaya waktu verifikasi tetap mirip saat akun tidak ditemukan.
 _DUMMY_HASH = bcrypt.hashpw(
     b"dummy-password", bcrypt.gensalt(rounds=BCRYPT_ROUNDS)
 ).decode("utf-8")
@@ -48,7 +46,6 @@ class AuthError(Exception):
     """Kesalahan autentikasi yang aman ditampilkan ke pengguna."""
 
 
-# ========================= KONEKSI =========================
 def get_dsn() -> str:
     """Ambil DSN dari environment, lalu dari .streamlit/secrets.toml."""
     dsn = os.environ.get("AUTH_DB_DSN", "").strip()

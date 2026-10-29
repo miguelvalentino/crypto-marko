@@ -2,9 +2,6 @@
 
 import streamlit as st
 
-# =====================================================================
-# CSS UNTUK MENYAMARATAKAN TINGGI CARD DI SEMUA KOLOM
-# =====================================================================
 st.markdown(
     """
     <style>
@@ -33,9 +30,7 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-# =====================================================================
 # HEADER & IDENTITAS SKRIPSI
-# =====================================================================
 st.title("Tentang Penelitian & Aplikasi")
 st.caption("Dokumentasi perancangan sistem, profil pengembang, dan batasan penelitian skripsi.")
 
@@ -55,9 +50,6 @@ with st.container(border=True):
 
 st.write("")
 
-# =====================================================================
-# BAGIAN 1: PROFIL DI BALIK PERANCANGAN
-# =====================================================================
 st.subheader("Profil di Balik Perancangan")
 st.write("Sistem ini dikembangkan sebagai bagian dari penelitian tugas akhir sarjana.")
 
@@ -91,9 +83,6 @@ with col_supervisor:
 
 st.write("")
 
-# =====================================================================
-# BAGIAN 2: ALUR PERANCANGAN SISTEM (METODOLOGI)
-# =====================================================================
 st.subheader("Alur Perancangan Sistem")
 st.write(
     "Tahapan metodologi penelitian dari ekstraksi data hingga penerapan sistem interaktif:"
@@ -174,9 +163,6 @@ with col_step6:
 
 st.write("")
 
-# =====================================================================
-# BAGIAN 3: BATASAN & RUANG LINGKUP PENELITIAN
-# =====================================================================
 st.subheader("Batasan & Ruang Lingkup Penelitian")
 
 with st.expander("Lihat Rincian Batasan Masalah Penelitian", expanded=True):
@@ -192,9 +178,6 @@ with st.expander("Lihat Rincian Batasan Masalah Penelitian", expanded=True):
 
 st.write("")
 
-# =====================================================================
-# BAGIAN 4: TECH STACK & TOOLS
-# =====================================================================
 st.subheader("Teknologi & Tools yang Digunakan")
 
 col_tech1, col_tech2, col_tech3, col_tech4 = st.columns(4)
@@ -221,9 +204,6 @@ with col_tech4:
 
 st.write("")
 
-# =====================================================================
-# BAGIAN 5: DISCLAIMER & VERSI SISTEM
-# =====================================================================
 st.divider()
 
 with st.container(border=True):

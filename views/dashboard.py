@@ -17,7 +17,6 @@ from common import (
 )
 from portfolio import optimize_weights, simulate_portfolio
 
-# ========================= KONSTANTA TAMPILAN =========================
 ACTUAL_LINE_COLOR = "#7fb3ff"
 PREDICTION_LINE_COLOR = "#7dff9b"
 CHART_HEIGHT = 400
@@ -60,8 +59,6 @@ def build_analysis_table(analysis):
         )
 
     df = pd.DataFrame(rows)
-    # Persen disimpan sebagai fraksi; ubah ke satuan persen agar format kolom
-    # bisa menampilkan tanda +/- dan dua desimal.
     df["Expected Return"] = df["Expected Return"] * 100
     df["Risiko (σ)"] = df["Risiko (σ)"] * 100
 

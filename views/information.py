@@ -25,16 +25,12 @@ st.caption(
     "karakteristik dataset yang digunakan, dan spesifikasi arsitektur model prediksi."
 )
 
-# Gunakan tabs untuk memisahkan ketiga topik utama secara terstruktur dan rapi
 tab_fitur, tab_dataset, tab_model = st.tabs([
     "Fitur Dashboard",
     "Informasi Dataset",
     "Spesifikasi Model",
 ])
 
-# =====================================================================
-# TAB 1: FITUR DASHBOARD
-# =====================================================================
 with tab_fitur:
     st.subheader("Panduan & Fungsi Fitur Dashboard")
     st.markdown(
@@ -121,9 +117,6 @@ with tab_fitur:
             "Tangkapan Layar: Formulir Input Modal dan Hasil Simulasi Investasi",
         )
 
-# =====================================================================
-# TAB 2: INFORMASI DATASET
-# =====================================================================
 with tab_dataset:
     st.subheader("Karakteristik & Struktur Dataset")
     st.markdown(
@@ -182,9 +175,6 @@ with tab_dataset:
         """
     )
 
-# =====================================================================
-# TAB 3: SPESIFIKASI MODEL
-# =====================================================================
 with tab_model:
     st.subheader("Spesifikasi Teknis & Arsitektur Model")
     st.markdown(
