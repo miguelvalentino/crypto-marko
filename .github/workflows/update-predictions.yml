@@ -57,5 +57,5 @@ jobs:
             echo "Tidak ada perubahan pada predictions.json."
             exit 0
           fi
-          git commit -m "chore: update predictions.json [skip ci]"
+          git commit -m "chore: update predictions.json"
           git push
