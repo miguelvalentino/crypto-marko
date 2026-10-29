@@ -4,6 +4,7 @@ import pandas as pd
 import streamlit as st
 
 import auth
+import github_actions
 
 current = auth.require_admin()
 
@@ -22,6 +23,63 @@ if flash:
 def rerun_with_flash(kind: str, message: str) -> None:
     st.session_state["_admin_flash"] = (kind, message)
     st.rerun()
+
+# ========================= PEMBARUAN DATA =========================
+st.subheader("Pembaruan data prediksi")
+
+# Tampilkan waktu generate terakhir.
+_last_generated = "-"
+try:
+    import json, os
+    _pred_path = os.path.join(
+        os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+        "predictions.json",
+    )
+    with open(_pred_path, encoding="utf-8") as _f:
+        _pred = json.load(_f)
+    _last_generated = _pred.get("meta", {}).get("generated_at", "-")
+except Exception:
+    _last_generated = "-"
+
+st.caption(f"Terakhir diperbarui: {_last_generated}")
+
+if not github_actions.is_configured():
+    st.warning(
+        "Pembaruan otomatis belum dikonfigurasi. Tambahkan bagian `[github]` "
+        "(token, owner, repo) di `.streamlit/secrets.toml`."
+    )
+else:
+    col_btn, col_status = st.columns([1, 2], vertical_alignment="center")
+    with col_btn:
+        if st.button(
+            "Perbarui data sekarang",
+            type="primary",
+            width="stretch",
+            key="admin_btn_update_data",
+        ):
+            ok, msg = github_actions.trigger_update()
+            if ok:
+                st.session_state["_admin_flash"] = ("success", msg)
+            else:
+                st.session_state["_admin_flash"] = ("error", msg)
+            st.rerun()
+    with col_status:
+        runs = github_actions.latest_runs(limit=3)
+        if runs:
+            latest = runs[0]
+            label = github_actions.run_status_label(latest)
+            st.caption(
+                f"Run terakhir: {label} · {latest['created_at'][:19].replace('T', ' ')}"
+            )
+            if latest.get("html_url"):
+                st.markdown(f"[Lihat di GitHub]({latest['html_url']})")
+        else:
+            st.caption("Belum ada riwayat run.")
+
+    if st.button("Segarkan status", key="admin_btn_refresh_runs"):
+        st.rerun()
+
+st.divider()
 
 st.subheader("Buat akun")
 

@@ -42,7 +42,7 @@ with st.container(border=True):
         Perbandingan Algoritma TCN dan Long Short-Term Memory untuk Prediksi Harga dalam Optimasi Portofolio Markowitz pada Cryptocurrency Blue-Chip di Bursa Lokal
 
         **Perguruan Tinggi:**  
-        Program Studi Teknik Informatika
+        Program Studi Teknik Informatika  
         Fakultas Teknologi Informasi — Universitas Tarumanagara  
         **Tahun Akademik:** 2023
         """
