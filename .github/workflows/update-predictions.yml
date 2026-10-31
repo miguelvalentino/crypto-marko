@@ -2,8 +2,8 @@ name: Update predictions
 
 on:
   schedule:
-    # 07:30 WIB = 00:30 UTC
-    - cron: "30 0 * * *"
+    # 09:00 WIB
+    - cron: "0 2 * * *"
   workflow_dispatch:
     inputs:
       force:
