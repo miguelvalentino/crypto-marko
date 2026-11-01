@@ -163,17 +163,17 @@ if asset_data:
 else:
     st.warning("Data tidak tersedia untuk model/aset yang dipilih.")
 
-# ========================= 02 / EVALUASI MODEL =========================
+# ========================= EVALUASI MODEL =========================
 st.divider()
 
-st.subheader(" 02 / Estimasi & Optimasi")
+st.subheader("Estimasi & Optimasi")
 
 with st.container(key="grup_horizon"):
     tombol_pilihan("Horizon (hari)", HORIZONS, "horizon", "btn_horizon")
 
 horizon = st.session_state.horizon
 
-st.markdown("### 03 / Evaluasi Model")
+st.markdown("### Evaluasi Model")
 st.write(f"**Hasil Evaluasi Akurasi Model - {horizon} hari**")
 
 backtest = backtest_metrics(model, horizon, asset)
@@ -190,8 +190,8 @@ if backtest:
 else:
     st.info("Data backtesting tidak tersedia.")
 
-# ========================= 03 / ANALISIS PER ASET =========================
-st.markdown("### 04 / Analisis per Aset")
+# ========================= ANALISIS PER ASET =========================
+st.markdown("### Analisis per Aset")
 st.write(f"**Expected return & risiko - {horizon} hari**")
 
 analysis = analysis_block(model, horizon)
@@ -229,7 +229,7 @@ if analysis:
 else:
     st.info("Data analisis tidak tersedia.")
 
-# ========================= 04 / BOBOT MARKOWITZ =========================
+# ========================= BOBOT MARKOWITZ =========================
 st.divider()
 st.subheader("Rekomendasi bobot aset Portofolio Markowitz")
 

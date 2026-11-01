@@ -216,7 +216,7 @@ with tab_model:
         )
 
     st.markdown("---")
-    st.markdown("####Konfigurasi Hyperparameter Pelatihan (*Training Setup*)")
+    st.markdown("#### Konfigurasi Hyperparameter Pelatihan (*Training Setup*)")
     st.markdown(
         "Kedua model dilatih dengan lingkungan dan protokol hyperparameter yang setara (*fair comparison*):"
     )
