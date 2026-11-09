@@ -74,3 +74,4 @@ update_log*.json
 # database/      -> schema.sql
 # requirements.txt
 # .streamlit/config.toml
+docs/ALUR_PERHITUNGAN.md
