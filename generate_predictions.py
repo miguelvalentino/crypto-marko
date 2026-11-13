@@ -13,7 +13,7 @@ WIB = timezone(timedelta(hours=7))
 ASSETS = ["BTC", "ETH", "SOL"]
 MODELS = ["LSTM", "TCN"]
 HORIZONS = [1, 3, 7, 14, 30]
-WINDOW_SIZE = 30
+WINDOW_SIZE = 60
 HISTORY_DAYS = 60
 LOOKBACK_DAYS = 90
 BI_RATE_ANNUAL = 0.0575
@@ -57,16 +57,16 @@ def find_file(filename):
 
 
 def model_file_names(model, asset, horizon):
-    """Penamaan file per model, PERSIS seperti di notebook.
+    """Penamaan file per model, PERSIS seperti di notebook-lstm-tcn-final.
 
-    Notebook (train_lstm_for_horizon):
-        {asset}_LSTM_h{h}.keras        + target_scaler_{asset}_h{h}.pkl
-    Notebook (train_tcn_for_horizon):
-        {asset}_TCN_h{h}.keras         + target_scaler_TCN_{asset}_h{h}.pkl
+    Notebook (train_lstm_for_horizon, v3 1500 baris):
+        {asset}_LSTM_h{h}_1500.keras        + target_scaler_{asset}_h{h}_1500.pkl
+    Notebook (train_tcn_for_horizon, v3 1500 baris):
+        {asset}_TCN_h{h}_1500.keras         + target_scaler_TCN_{asset}_h{h}_1500.pkl
     """
     if model == "TCN":
-        return f"{asset}_TCN_h{horizon}.keras", f"target_scaler_TCN_{asset}_h{horizon}.pkl"
-    return f"{asset}_{model}_h{horizon}.keras", f"target_scaler_{asset}_h{horizon}.pkl"
+        return f"{asset}_TCN_h{horizon}_1500.keras", f"target_scaler_TCN_{asset}_h{horizon}_1500.pkl"
+    return f"{asset}_{model}_h{horizon}_1500.keras", f"target_scaler_{asset}_h{horizon}_1500.pkl"
 
 
 def fetch_live_merged():
@@ -312,11 +312,9 @@ def compute_backtest_metrics(merged, load_model):
                 if "Target_%dd" % h not in test_df.columns:
                     continue
 
-                model_path = find_file(f"{asset}_{model}_h{h}.keras")
-                tscaler_path = find_file(
-                    f"target_scaler_TCN_{asset}_h{h}.pkl" if model == "TCN"
-                    else f"target_scaler_{asset}_h{h}.pkl"
-                )
+                model_path, tscaler_name = model_file_names(model, asset, h)
+                model_path = find_file(model_path)
+                tscaler_path = find_file(tscaler_name)
                 if not model_path or not tscaler_path:
                     continue
 
@@ -355,11 +353,89 @@ def predict_all(force=False, strict=False):
         return
 
     try:
-        from tensorflow.keras.models import load_model
+        import tensorflow as tf
+        from tensorflow.keras.models import load_model as _tf_load_model
     except ImportError:
         print("[ERROR] tensorflow belum terinstal di environment ini.")
         print("        Jalankan di environment notebook: pip install tensorflow scikit-learn ccxt pandas scipy joblib")
         sys.exit(1)
+
+    # Model TCN memuat layer Lambda berisi lambda Python; Keras 3 memblokirnya
+    # secara default (safe_mode) dan tidak bisa menyimpulkan output_shape Lambda.
+    # Kita ganti Lambda tsb dengan layer kustom yang ekuivalen (ambil timestep
+    # terakhir), setelah menambal registered_name pada config.zip agar custom
+    # object dapat dipakai.
+    import io
+    import json as _json
+    import tempfile
+    import zipfile as _zipfile
+
+    class LastTimestep(tf.keras.layers.Layer):
+        def __init__(self, function=None, arguments=None, **kwargs):
+            kwargs.pop("function", None)
+            kwargs.pop("arguments", None)
+            super().__init__(**kwargs)
+
+        def call(self, x, mask=None):
+            return x[:, -1, :]
+
+    def _patch_keras_zip(path):
+        """Kembalikan path file .keras yang sudah ditambal (atau path asli)."""
+        if not str(path).lower().endswith(".keras"):
+            return path
+        try:
+            zf = _zipfile.ZipFile(path)
+        except _zipfile.BadZipFile:
+            return path
+        names = zf.namelist()
+        if "config.json" not in names:
+            zf.close()
+            return path
+        cfg = _json.loads(zf.read("config.json"))
+
+        changed = {"v": False}
+
+        def fix(obj):
+            if isinstance(obj, dict):
+                if obj.get("class_name") == "Lambda":
+                    if obj.get("registered_name") is None:
+                        obj["registered_name"] = "Lambda"
+                        changed["v"] = True
+                for v in obj.values():
+                    fix(v)
+            elif isinstance(obj, list):
+                for v in obj:
+                    fix(v)
+
+        fix(cfg)
+        if not changed["v"]:
+            zf.close()
+            return path
+
+        fd, tmp = tempfile.mkstemp(suffix=".keras")
+        os.close(fd)
+        zout = _zipfile.ZipFile(tmp, "w", _zipfile.ZIP_DEFLATED)
+        for n in names:
+            data = zf.read(n)
+            if n == "config.json":
+                data = _json.dumps(cfg).encode("utf-8")
+            zout.writestr(n, data)
+        zout.close()
+        zf.close()
+        return tmp
+
+    def load_model(path):
+        patched = _patch_keras_zip(path)
+        try:
+            return _tf_load_model(
+                patched, custom_objects={"Lambda": LastTimestep}, safe_mode=False,
+            )
+        finally:
+            if patched != path and os.path.exists(patched):
+                try:
+                    os.remove(patched)
+                except OSError:
+                    pass
 
     try:
         print("[INFO] Mencoba fetch data live dari API...")
